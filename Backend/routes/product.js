@@ -8,7 +8,7 @@ const authorizeRole = require('../middlewares/authorizeRole')
 
 //
 const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, '/uploads'),
+  destination: (req, file, cb) => cb(null, 'uploads'),
   filename: (req, file, cb) => cb(null, Date.now() + '-' + file.originalname),
 })
 
@@ -48,7 +48,7 @@ router.post(
 router.put(
   '/:id',
   authenticateToken,
-  authorizeRole(['admin', 'seller']),
+  authorizeRole(['seller', 'admin']),
   async (req, res) => {
     const { name, description, price, category, stock, image } = req.body
 
@@ -86,7 +86,7 @@ router.put(
 router.delete(
   '/:id',
   authenticateToken,
-  authorizeRole[('seller', 'admin')],
+  authorizeRole(['seller', 'admin']),
   async (req, res) => {
     try {
       const product = await Product.findById(req.params.id)

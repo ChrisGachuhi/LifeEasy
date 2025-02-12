@@ -134,7 +134,7 @@ router.get('/', authenticateToken, async (req, res) => {
 router.put(
   '/:id',
   authenticateToken,
-  authorizeRole['admin'],
+  authorizeRole(['admin']),
   async (req, res) => {
     const { status } = req.body
 
