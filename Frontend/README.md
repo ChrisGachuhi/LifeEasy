@@ -130,3 +130,4 @@ New users now correctly appear in MongoDB, and authentication works seamlessly.
 - Test all functionalities to confirm stability.  
 - Ensure proper user role-based access to CRUD operations.  
 - Start integrating real-time notifications for orders.  
+
