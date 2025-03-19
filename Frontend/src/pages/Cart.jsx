@@ -74,7 +74,7 @@ const handleCheckout = async () => {
   }
 
   const updatedCart = cartData.items.map((item) => ({
-    product: item.product._id, // FIX: Ensure the field is `product`
+    product: item.product._id, //Ensure the field is `product`
     quantity: quantities[item.product._id] ?? 1, // Use stored quantity
   }))
 
