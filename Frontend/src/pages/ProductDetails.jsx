@@ -1,14 +1,20 @@
+import { useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { useFetchProductByIdQuery } from '../redux/productApi'
-import { useDispatch } from 'react-redux'
-import { updateCart } from '../redux/cartSlice'
-import { useState } from 'react'
+import { useAddToCartMutation, useFetchCartQuery } from '../redux/cartApi'
 
-export const ProductDetails = () => {
+const ProductDetails = () => {
   const { id } = useParams()
-  const dispatch = useDispatch()
   const { data: product, isLoading, isError } = useFetchProductByIdQuery(id)
+  const [addToCart] = useAddToCartMutation()
   const [quantity, setQuantity] = useState(1)
+
+  const { refetch } = useFetchCartQuery()
+
+  const handleAddToCart = async () => {
+    await addToCart({ productId: product._id, quantity })
+    refetch()
+  }
 
   if (isLoading)
     return <span className='text-center text-md'>Loading product...</span>
@@ -51,17 +57,7 @@ export const ProductDetails = () => {
           </div>
 
           <button
-            onClick={() =>
-              dispatch(
-                updateCart({
-                  id: product._id,
-                  name: product.name,
-                  price: product.price,
-                  image: product.image,
-                  quantity,
-                })
-              )
-            }
+            onClick={handleAddToCart}
             className='mt-4 px-6 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700'>
             Add to Cart
           </button>
@@ -70,3 +66,5 @@ export const ProductDetails = () => {
     </div>
   )
 }
+
+export default ProductDetails

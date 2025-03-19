@@ -1,12 +1,20 @@
-import { useContext } from 'react'
+import { useContext, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { AuthContext } from '../context/AuthContext'
-import { useSelector } from 'react-redux'
+import { useDispatch } from 'react-redux'
+import { useFetchCartQuery } from '../redux/cartApi'
 
 export const Navbar = () => {
   const { user, logout } = useContext(AuthContext)
   const navigate = useNavigate()
-  const cart = useSelector((state) => state.cart)
+  const dispatch = useDispatch()
+  const { data: cartData } = useFetchCartQuery()
+
+  useEffect(() => {
+    if (cartData) {
+      dispatch({ type: 'cart/fetchCart/fulfilled', payload: cartData })
+    }
+  }, [cartData, dispatch])
 
   const handleLogout = async () => {
     logout()
@@ -20,12 +28,10 @@ export const Navbar = () => {
         className='text-2xl font-bold tracking-wide hover:text-gray-300'>
         LifeEasy
       </Link>
-
       <div className='space-x-4 flex items-center'>
         <Link to={'/'} className='mx-3 text-lg hover:text-gray-300'>
           Home
         </Link>
-
         {user?.role === 'user' && (
           <Link to={'/orders'} className='hover:text-gray-300'>
             My Orders
@@ -56,9 +62,9 @@ export const Navbar = () => {
 
         <Link to={'/cart'} className='relative hover:text-gray-300'>
           Cart
-          {cart.totalQuantity > 0 && (
+          {cartData?.items.length > 0 && (
             <span className='absolute bottom-3 right-0 bg-red-500 px-2 py-0.5 rounded-full text-xs'>
-              {cart.totalQuantity}
+              {cartData.items.length}
             </span>
           )}
         </Link>
