@@ -52,21 +52,40 @@ router.post('/add', authenticateToken, async (req, res) => {
 
 router.put('/update', authenticateToken, async (req, res) => {
   try {
+    const userId = req.user.id
     const { items } = req.body
-    const userId = req.user.id // Extract user ID from token
 
-    const userCart = await Cart.findOne({ user: userId })
+    if (!items || !Array.isArray(items)) {
+      return res.status(400).json({ message: 'Invalid cart data' })
+    }
 
-    if (!userCart) return res.status(404).json({ message: 'Cart not found' })
+    // Validate product field exists in all items
+    for (let item of items) {
+      if (!item.product) {
+        return res
+          .status(400)
+          .json({ message: 'Each item must have a product ID' })
+      }
+    }
 
-    userCart.items = items
-    await userCart.save()
+    let cart = await Cart.findOne({ user: userId })
 
-    res.json({ message: 'Cart updated', cart: userCart })
-  } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err.message })
+    if (!cart) {
+      return res.status(404).json({ message: 'Cart not found' })
+    }
+
+    cart.items = items
+    await cart.save()
+
+    return res.status(200).json({ message: 'Cart updated successfully', cart })
+  } catch (error) {
+    console.error('Error updating cart:', error)
+    return res
+      .status(500)
+      .json({ message: 'Server error', error: error.message })
   }
 })
+
 
 
 // Remove Item from Cart

@@ -68,21 +68,27 @@ const Cart = () => {
 
   // Handle checkout (sync cart with backend)
 const handleCheckout = async () => {
+  if (!cartData?.items?.length) {
+    alert('Cart is empty')
+    return
+  }
+
+  const updatedCart = cartData.items.map((item) => ({
+    product: item.product._id, // FIX: Ensure the field is `product`
+    quantity: quantities[item.product._id] ?? 1, // Use stored quantity
+  }))
+
   try {
-    const updatedCart = cartData.items.map((item) => ({
-      productId: item.product._id,
-      quantity: quantities[item.product._id],
-    }))
-
-    await updateCart({ items: updatedCart }) // Send bulk update to backend
-
-    refetch() // Ensure UI updates with latest data
-
-    navigate('/checkout') // Redirect to checkout after update
+    const response = await updateCart({ items: updatedCart }).unwrap()
+    console.log('Cart updated successfully:', response)
+    refetch() // Refresh cart after update
+    navigate('/checkout')
   } catch (error) {
-    console.error('Error updating cart before checkout:', error)
+    console.error('Failed to update cart:', error)
+    alert('Error updating cart. Please try again.')
   }
 }
+
 
 
   return (
