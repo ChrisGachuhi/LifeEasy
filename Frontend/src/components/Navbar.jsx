@@ -8,7 +8,11 @@ export const Navbar = () => {
   const { user, logout } = useContext(AuthContext)
   const navigate = useNavigate()
   const dispatch = useDispatch()
-  const { data: cartData } = useFetchCartQuery()
+
+  // Fetch cart data only if user is logged in
+  const { data: cartData } = useFetchCartQuery(undefined, {
+    skip: !user, // Prevents fetching when user is not logged in
+  })
 
   useEffect(() => {
     if (cartData) {
@@ -28,10 +32,12 @@ export const Navbar = () => {
         className='text-2xl font-bold tracking-wide hover:text-gray-300'>
         LifeEasy
       </Link>
+
       <div className='space-x-4 flex items-center'>
         <Link to={'/'} className='mx-3 text-lg hover:text-gray-300'>
           Home
         </Link>
+
         {user?.role === 'user' && (
           <Link to={'/orders'} className='hover:text-gray-300'>
             My Orders
@@ -60,14 +66,16 @@ export const Navbar = () => {
           </>
         )}
 
-        <Link to={'/cart'} className='relative hover:text-gray-300'>
-          Cart
-          {cartData?.items.length > 0 && (
-            <span className='absolute bottom-3 right-0 bg-red-500 px-2 py-0.5 rounded-full text-xs'>
-              {cartData.items.length}
-            </span>
-          )}
-        </Link>
+        {user && (
+          <Link to={'/cart'} className='relative hover:text-gray-300'>
+            Cart
+            {cartData?.items.length > 0 && (
+              <span className='absolute bottom-3 right-0 bg-red-500 px-2 py-0.5 rounded-full text-xs'>
+                {cartData.items.length}
+              </span>
+            )}
+          </Link>
+        )}
 
         {!user ? (
           <>

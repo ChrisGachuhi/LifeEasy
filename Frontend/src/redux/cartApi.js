@@ -8,6 +8,8 @@ export const cartApi = createApi({
       const token = localStorage.getItem('token')
       if (token) {
         headers.set('Authorization', `Bearer ${token}`)
+      } else {
+        console.warn('No token found! User might not be logged in.')
       }
       return headers
     },
@@ -15,6 +17,9 @@ export const cartApi = createApi({
   endpoints: (builder) => ({
     fetchCart: builder.query({
       query: () => '/',
+      // Prevent fetching cart if there's no token
+      providesTags: ['Cart'],
+      keepUnusedDataFor: 0, // Prevents caching issues
     }),
 
     addToCart: builder.mutation({
@@ -26,7 +31,7 @@ export const cartApi = createApi({
     }),
 
     updateCart: builder.mutation({
-      query: ({items }) => ({
+      query: ({ items }) => ({
         url: `/update`,
         method: 'PUT',
         body: { items },
@@ -51,7 +56,7 @@ export const cartApi = createApi({
 
 export const {
   useFetchCartQuery,
-  useAddToCartMutation,  // ✅ Ensure this export exists
+  useAddToCartMutation,  // Ensure this export exists
   useUpdateCartMutation,
   useRemoveFromCartMutation,
   useClearCartMutation,
