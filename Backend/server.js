@@ -25,6 +25,7 @@ app.use('/api/product', productRoutes)
 app.use('/api/order', orderRoutes)
 app.use('/api/cart', cartRoutes) // NEW: Attach cart endpoints
 
+
 // Connect to MongoDB
 mongoose
   .connect(process.env.MONGO_URI)

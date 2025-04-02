@@ -1,136 +1,94 @@
 const express = require('express')
+const router = express.Router()
+
 const Order = require('../models/Order')
 const Product = require('../models/Product')
 const authenticateToken = require('../middlewares/authenticateToken')
 const authorizeRole = require('../middlewares/authorizeRole')
-const router = express.Router()
 
-const { notifyAdmins, notifyUser } = require('../socketManager')
-
-//Place a new order - [Authenticated Users Only]
+//Place a new order - (User)
 router.post('/', authenticateToken, async (req, res) => {
-  const { products } = req.body //array of product ids and quantities - because an order can contain more then one product
+  const { products } = req.body //attached the array of product&quantity to the body of the request
 
   try {
     let totalAmount = 0
-    let sellerToNotify = new Set() //store unique sellerId to avoid duplicate notifications
-    let productDetails = [] //store product,seller,price details for admin notification
+    const validatedProducts = []
 
-    //VALIDATE AND CALCULATE TOTAL AMOUNT
+    //Loop through the list of products in db, run all necessary computations
     for (const item of products) {
-      const product = await Product.findById(item.product)
+      const product = await Product.findById(item.products)
 
-      //if the product doesnt exists
       if (!product)
         return res
           .status(404)
           .json({ message: `Product ${item.product} not found` })
 
-      //if the inventory level is less than the order amount
-      if (product.stock < item.quantity)
+      if (product.quantity < item.quantity)
         return res
           .status(400)
-          .json({ message: `Insufficient stock for ${product.name} ` })
+          .json({ message: `Insufficient stock for ${product.name}` })
 
-      //calculate the order total
       totalAmount += product.price * item.quantity
+      validatedProducts.push({ product: product._id, quantity: item.quantity })
 
-      //add seller id to the set
-      sellerToNotify.add(product.seller._id.toString())
-
-      //store product details
-      productDetails.push({
-        name: product.name,
-        price: product.price,
-        seller: {
-          id: product.seller._id,
-          username: product.seller.username,
-          email: product.seller.email,
-        },
-      })
-
-      //CREATE THE ORDER
-      const order = new Order({
-        user: req.user.id, //attach user id from the TOKEN
-        product,
-        totalAmount,
-      })
-
-      //REDUCE THE STOCK FOR EACH PRODUCT
-      for (item of products) {
-        await Product.findByIdAndUpdate(item.product, {
-          $inc: { stock: -item.quantity },
-        })
-      }
-
-      await order.save()
-
-      //Notify seller
-      sellerToNotify.forEach((sellerId) => {
-        notifyUser(req.app.get('io'), sellerId, 'newOrder', {
-          message: 'You have a new order',
-        })
-      })
-
-      //Notify admin
-      notifyAdmins(req.app.get('io'), 'newOrder', {
-        message: 'A new order has been placed',
-        orderId: order._id,
-        user: {
-          id: req.user.id,
-          username: req.user.username,
-          email: req.user.email,
-        },
-        product: productDetails,
-      })
-
-      res.status(201).json({ message: 'Order placed successfully', order })
+      product.stock -= item.quantity
+      await product.save()
     }
+
+    //create order and update db
+    const order = new Order({
+      user: req.user.id,
+      products: validatedProducts,
+      totalAmount,
+    })
+
+    await order.save()
+    res.status(201).json({ message: 'Order placed successfully', order })
   } catch (err) {
+    console.error('Order placement failed', err)
     res.status(500).json({ message: 'Error placing order', error: err.message })
   }
 })
 
-//Fetch orders - [Needs Role-Based Access]
+//Fetch the orders based on user role
 router.get('/', authenticateToken, async (req, res) => {
   try {
     let orders
 
-    //Users can fetch their own orders
     if (req.user.role === 'user')
       orders = await Order.find({ user: req.user.id }).populate(
         'products.product',
         'name price'
       )
-    //Sellers fetch orders that contain their products
     else if (req.user.role === 'seller') {
-      orders = await orders
-        .find()
+      //fetch all the orders from db
+      orders = await Order.find()
         .populate('products.product', 'name price seller')
         .populate('user', 'username email')
 
+      //filter out all orders containing their products
       orders = orders.filter((order) =>
-        order.products.some(
-          (item) => item.product.seller.toString() === req.user.id
-        )
+        order.products.some((p) => p.product.seller.toString() === req.user.id)
       )
-    }
-
-    //Admin fetch all orders
-    else if (req.user.role === 'admin')
+    } else if (req.user.role === 'admin') {
+      //fetch all orders from the db
       orders = await Order.find()
         .populate('products.product', 'name price')
         .populate('user', 'username email')
-    //Unauthorized deny access to orders
-    else res.status(403).json({ message: 'Access Denied' })
+    } else {
+      return res.status(403).json({ message: 'Access Denied' })
+    }
+
+    res.json(orders)
   } catch (err) {
+    console.error('Error fetching orders', err)
     res
       .status(500)
-      .json({ message: 'Error fetching order', error: err.message })
+      .json({ message: 'Error fetching orders', error: err.message })
   }
 })
 
-//Update Order Status
+//Update order status -for admin only
 router.put(
   '/:id',
   authenticateToken,
@@ -141,18 +99,17 @@ router.put(
     try {
       const order = await Order.findById(req.params.id)
 
-      if (!order) res.status(404).json({ message: 'Order not found' })
+      if (!order) return res.status(404).json({ message: 'Order not found' })
 
       order.status = status
       await order.save()
 
-      res.json({ message: 'Order updated successfully' })
+      res.json({ message: 'Order status updated' })
     } catch (err) {
+      console.error('Failed to update order status', err)
       res
         .status(500)
-        .json({ message: 'Error updating order', error: err.message })
+        .json({ message: 'Error updating the order', error: err.message })
     }
   }
 )
-
-module.exports = router

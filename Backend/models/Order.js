@@ -1,28 +1,38 @@
 const mongoose = require('mongoose')
 
 const orderSchema = new mongoose.Schema({
-  user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }, //the user who placed the order
-
-  product: [
+  user: {
+    type: mongoose.Schema.Types.ObjectId, //we are getting it from already existing data in mongodb
+    ref: 'User',
+    required: true,
+  },
+  products: [
     {
       product: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Product',
         required: true,
-      }, //the product that has been ordered
-      quantity: { type: Number, required: true },
+      },
+      quantity: {
+        type: Number,
+        required: true,
+        min: 1,
+      },
     },
   ],
-
-  totalAmount: { type: Number, required: true },
-
+  totalAmount: {
+    type: Number,
+    required: true, //total price of order as computed server-side
+  },
   status: {
     type: String,
     enum: ['Pending', 'Shipped', 'Delivered'],
     default: 'Pending',
   },
-
-  createdAt: { type: Date, default: Date.now() },
+  createdAt: {
+    type: Date,
+    default: Date.now,
+  },
 })
 
 module.exports = mongoose.model('Order', orderSchema)

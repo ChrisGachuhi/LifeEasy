@@ -1,6 +1,9 @@
 import { useState } from 'react'
 
 export const Orders = () => {
+  const date = new Date.now()
+  console.log(date)
+
   const orderList = [
     {
       id: 'ORD001',
