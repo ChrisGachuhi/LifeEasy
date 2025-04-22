@@ -4,6 +4,7 @@ import { useLoginMutation, useRegisterMutation } from '../redux/authApi'
 //Create the authentication context
 export const AuthContext = createContext()
 
+// eslint-disable-next-line react/prop-types
 const AuthProvider = ({ children }) => {
   //Variable to store user state
   const [user, setUser] = useState(null)
