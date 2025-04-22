@@ -1,13 +1,14 @@
 import { useState } from 'react'
-import iPhone from '../assets/iPhone.jpeg'
-import macbook from '../assets/macbook.webp'
 import { useNavigate } from 'react-router-dom'
+import { useClearCartMutation, useFetchCartQuery } from '../redux/cartApi'
+import { usePlaceOrderMutation } from '../redux/orderApi'
 
 export const Checkout = () => {
-  const cartItems = [
-    { id: 1, name: 'iPhone', price: 500, image: iPhone, quantity: 1 },
-    { id: 2, name: 'Macbook', price: 1500, image: macbook, quantity: 1 },
-  ]
+  const { data: cartItems, isLoading, error } = useFetchCartQuery()
+  const [placeOrder] = usePlaceOrderMutation()
+  const [clearCart] = useClearCartMutation()
+
+  const navigate = useNavigate()
 
   const [shippingInfo, setShippingInfo] = useState({
     fullname: '',
@@ -18,32 +19,63 @@ export const Checkout = () => {
 
   const [paymentMethod, setPaymentMethod] = useState('card')
 
-  const navigate = useNavigate()
-
-  //Calculate the total price
-  const totalPrice = cartItems.reduce(
-    (total, item) => total + item.price * item.quantity,
-    0
-  )
-
   //Handle change
   const handleChange = (e) => {
     setShippingInfo({ ...shippingInfo, [e.target.name]: e.target.value })
   }
 
-  //Handle Order Submission
-  const handleOrder = (e) => {
+  // Handle Order Submission
+  const handleOrder = async (e) => {
     e.preventDefault()
-    alert('Order successfully placed')
-    navigate('/')
+
+    // Validate that all cart items contain a valid product ID
+    const hasInvalidProduct = cartItems.items.some(
+      (item) => !item.product || !item.product._id
+    )
+
+    if (hasInvalidProduct) {
+      alert('One or more products in your cart are invalid or unavailable.')
+      return
+    }
+
+    // Create payload by extracting product ID and quantity only
+    const orderPayload = {
+      products: cartItems.items.map((item) => ({
+        product: item.product._id, // ✅ use only the ID
+        quantity: item.quantity,
+      })),
+      paymentMethod,
+      shippingAddress: shippingInfo,
+    }
+
+    try {
+      await placeOrder(orderPayload).unwrap() // send request to backend
+      await clearCart() // clear the cart after successful order
+      alert('Order placed successfully!')
+      navigate('/orders')
+    } catch (err) {
+      console.error('Error placing order:', err)
+      alert('Order failed. Please check product availability and try again.')
+    }
   }
+
+  //Calculate the total price
+  const totalPrice = cartItems?.items
+    ?.reduce((acc, item) => {
+      return acc + item.product.price * item.quantity
+    }, 0)
+    .toFixed(2) // <- move toFixed here after accumulation
+
+  if (isLoading) return <p>Loading cart...</p>
+  if (error) return <p className='text-red-500'>Failed to load cart.</p>
+  if (!cartItems?.items?.length) return <p>Your cart is empty.</p>
 
   return (
     <div className='mx-auto p-6'>
       <h1 className='text-3xl font-bold mb-6 text-center'>Checkout</h1>
 
       <div className='grid grid-cols-1 md:grid-cols-2 gap-6'>
-        {/* Shipping Details Form */}
+        {/* Shipping Form */}
         <div className='md:col-span-2 bg-white p-6 rounded-lg shadow-md'>
           <h2 className='text-xl font-semibold mb-4'>Shipping Details</h2>
           <form onSubmit={handleOrder}>
@@ -84,44 +116,22 @@ export const Checkout = () => {
               onChange={handleChange}
             />
 
-            {/* Select Payment Method */}
+            {/* Payment Selection */}
             <h2 className='text-xl font-semibold mt-6 mb-2'>Payment Method</h2>
             <div className='flex gap-4'>
-              <label className='flex items-center'>
-                <input
-                  type='radio'
-                  name='paymentMethod'
-                  value={'card'}
-                  checked={paymentMethod === 'card'}
-                  onChange={() => setPaymentMethod('card')}
-                  className='mr-2'
-                />
-                Card
-              </label>
-
-              <label className='flex items-center'>
-                <input
-                  type='radio'
-                  name='paymentMethod'
-                  value={'cod'}
-                  checked={paymentMethod === 'cod'}
-                  onChange={() => setPaymentMethod('cod')}
-                  className='mr-2'
-                />
-                Cash on Delivery
-              </label>
-
-              <label className='flex items-center'>
-                <input
-                  type='radio'
-                  name='paymentMethod'
-                  value={'mpesa'}
-                  checked={paymentMethod === 'mpesa'}
-                  onChange={() => setPaymentMethod('mpesa')}
-                  className='mr-2'
-                />
-                Mpesa
-              </label>
+              {['card', 'cod', 'mpesa'].map((method) => (
+                <label key={method} className='flex items-center'>
+                  <input
+                    type='radio'
+                    name='paymentMethod'
+                    value={method}
+                    checked={paymentMethod === method}
+                    onChange={() => setPaymentMethod(method)}
+                    className='mr-2'
+                  />
+                  {method.charAt(0).toUpperCase() + method.slice(1)}
+                </label>
+              ))}
             </div>
 
             <button
@@ -135,20 +145,19 @@ export const Checkout = () => {
         {/* Order Summary */}
         <div className='bg-white p-6 rounded-lg shadow-md'>
           <h2 className='text-xl font-semibold mb-4'>Order Summary</h2>
-          {cartItems.map((item) => (
-            <div key={item.id} className='flex justify-between mb-4'>
+          {cartItems.items.map((item) => (
+            <div key={item.product._id} className='flex justify-between mb-4'>
               <span>
-                {item.name} x {item.quantity}
+                {item.product.name} x {item.quantity}
               </span>
-              <span> ${(item.price * item.quantity).toFixed(2)} </span>
+              <span> ${(item.product.price * item.quantity).toFixed(2)} </span>
             </div>
           ))}
 
           <hr className='my-3' />
-
           <p className='text-gray-700'>
-            Total Price:{' '}
-            <span className='font-bold'> ${totalPrice.toFixed(2)} </span>
+            Total Price:
+            <span className='font-bold'> ${totalPrice} </span>
           </p>
         </div>
       </div>
