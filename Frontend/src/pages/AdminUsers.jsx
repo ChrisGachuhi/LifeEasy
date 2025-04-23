@@ -1,33 +1,46 @@
-import { useState } from 'react'
+import {
+  useDeleteUserMutation,
+  useFetchUsersQuery,
+  useUpdateUserRoleMutation,
+} from '../redux/userApi'
 
 export const AdminUsers = () => {
-  const [users, setUsers] = useState([
-    { id: 1, username: 'JohnDoe', email: 'john@example.com', role: 'user' },
-    {
-      id: 2,
-      username: 'JaneSmith',
-      email: 'jane@example.com',
-      role: 'seller',
-    },
-    {
-      id: 3,
-      username: 'AdminUser',
-      email: 'admin@example.com',
-      role: 'admin',
-    },
-  ])
+  const {
+    data: users = [],
+    isLoading,
+    isError,
+    error,
+    refetch,
+  } = useFetchUsersQuery()
 
-  const updateRole = (id, newRole) => {
-    setUsers((prevUsers) =>
-      prevUsers.map((user) =>
-        user.id === id ? { ...user, role: newRole } : user
-      )
-    )
+  const [updateUserRole] = useUpdateUserRoleMutation()
+  const [deleteUser] = useDeleteUserMutation()
+
+  const handleUpdateRole = async (userId, newRole) => {
+    try {
+      await updateUserRole({ userId, role: newRole }).unwrap()
+      refetch()
+    } catch (err) {
+      console.error('Failed to update user role:', err.message)
+      alert('Failed to update user role')
+    }
   }
 
-  const deleteUser = (id) => {
-    setUsers((prevUsers) => prevUsers.filter((user) => user.id !== id))
+  const handleDeleteUser = async (userId) => {
+    const confirm = window.confirm('Are you sure you want to delete this user?')
+    if (!confirm) return
+
+    try {
+      await deleteUser(userId).unwrap()
+      refetch()
+    } catch (err) {
+      console.error('Failed to delete user:', err.message)
+      alert('Failed to delete user')
+    }
   }
+
+  if (isLoading) return <p>Loading Users...</p>
+  if (isError) return <p>Error fetching users: {error?.data?.message}</p>
 
   return (
     <div className='p-6'>
@@ -51,13 +64,13 @@ export const AdminUsers = () => {
 
           <tbody>
             {users.map((user, index) => (
-              <tr key={user.id} className='shadow-md'>
+              <tr key={user._id} className='shadow-md'>
                 <td className='p-3'> {index + 1} </td>
                 <td className='p-3'>{user.username}</td>
                 <td className='p-3'>{user.email}</td>
                 <td className='p-3'>
                   <select
-                    onChange={(e) => updateRole(user.id, e.target.value)}
+                    onChange={(e) => handleUpdateRole(user._id, e.target.value)}
                     value={user.role}
                     className='border p-2 rounded'>
                     <option value='user'>User</option>
@@ -69,12 +82,11 @@ export const AdminUsers = () => {
                   {user.role !== 'admin' && (
                     <button
                       className='bg-red-500 text-white px-3 py-2 rounded hover:bg-red-600'
-                      onClick={() => deleteUser(user.id)}>
+                      onClick={() => handleDeleteUser(user._id)}>
                       Delete
                     </button>
                   )}
                 </td>
-                ß
               </tr>
             ))}
           </tbody>

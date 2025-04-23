@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { AuthContext } from '../context/AuthContext'
 
 export const Register = () => {
-  const { register } = useContext(AuthContext)
+  const { register, authLoading } = useContext(AuthContext)
   const navigate = useNavigate()
 
   // Store form data
@@ -28,9 +28,7 @@ export const Register = () => {
     setError('')
 
     try {
-      await register(
-        formData
-      ) // use this because our registerMutation expects an object
+      await register(formData) // use this because our registerMutation expects an object
       navigate('/')
     } catch (err) {
       setError(err.message || 'Registration failed. Please try again.')
@@ -74,25 +72,14 @@ export const Register = () => {
           onChange={handleChange}
         />
 
-        <label className='block mb-3'>
-          <span className='text-gray-700'>Role:</span>
-          <select
-            name='role'
-            value={formData.role}
-            onChange={handleChange}
-            className='w-full p-2 border rounded mt-1'>
-            <option value='user'>User</option>
-            <option value='seller'>Seller</option>
-          </select>
-        </label>
-
         {/* Show error message if registration fails */}
         {error && <p className='text-red-500 text-center mb-3'>{error}</p>}
 
         <button
           type='submit'
+          disabled={authLoading}
           className='w-full bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700'>
-          Register
+          {authLoading ? 'Registering...' : Register}
         </button>
       </form>
 

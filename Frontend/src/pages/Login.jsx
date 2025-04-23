@@ -10,7 +10,7 @@ export const Login = () => {
 
   const [error, setError] = useState('')
 
-  const { login } = useContext(AuthContext)
+  const { login, authLoading } = useContext(AuthContext)
 
   const navigate = useNavigate()
 
@@ -60,8 +60,9 @@ export const Login = () => {
 
         <button
           type='submit'
+          disabled={authLoading}
           className='w-full bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700'>
-          Login
+          {authLoading ? 'Authenticating...' : 'Login'}
         </button>
       </form>
 

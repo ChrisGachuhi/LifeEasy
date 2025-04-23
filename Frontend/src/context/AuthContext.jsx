@@ -8,6 +8,7 @@ export const AuthContext = createContext()
 const AuthProvider = ({ children }) => {
   //Variable to store user state
   const [user, setUser] = useState(null)
+  const [authLoading, setAuthLoading] = useState(false) //New state for UI loading feedback
 
   const [registerUser] = useRegisterMutation()
   const [loginUser] = useLoginMutation()
@@ -22,6 +23,7 @@ const AuthProvider = ({ children }) => {
 
   //Function to login user - (Action to set user data to local storage)
   const login = async (email, password) => {
+    setAuthLoading(true) //Set loading state to true
     try {
       const { data } = await loginUser({ email, password })
 
@@ -32,11 +34,14 @@ const AuthProvider = ({ children }) => {
       }
     } catch (error) {
       console.error('Login failed', error.message)
+    } finally {
+      setAuthLoading(false) //Set loading state to false
     }
   }
 
   //Function to register user
   const register = async (formData) => {
+    setAuthLoading(true) //Set loading state to true
     try {
       const { data } = await registerUser(formData)
 
@@ -45,6 +50,9 @@ const AuthProvider = ({ children }) => {
       }
     } catch (error) {
       console.error('Registration failed', error.message)
+    }
+    finally {
+      setAuthLoading(false) //Set loading state to false
     }
   }
 
@@ -56,7 +64,7 @@ const AuthProvider = ({ children }) => {
   }
 
   return (
-    <AuthContext.Provider value={{ user, register, login, logout }}>
+    <AuthContext.Provider value={{ user, register, login, logout, authLoading }}>
       {children}
     </AuthContext.Provider>
   )
