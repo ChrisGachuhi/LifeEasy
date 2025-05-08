@@ -7,6 +7,7 @@ import { userApi } from './userApi'
 
 import orderReducer from './orderSlice'
 import cartReducer from './cartSlice'
+import { mpesaApi } from './mpesaApi'
 
 export const store = configureStore({
   reducer: {
@@ -17,6 +18,7 @@ export const store = configureStore({
     [userApi.reducerPath]: userApi.reducer,
     cart: cartReducer,
     order: orderReducer,
+    [mpesaApi.reducerPath]: mpesaApi.reducer,
   },
 
   middleware: (getDefaultMiddleware) => [
@@ -26,5 +28,6 @@ export const store = configureStore({
     cartApi.middleware,
     orderApi.middleware,
     userApi.middleware,
+    mpesaApi.middleware,
   ],
 })

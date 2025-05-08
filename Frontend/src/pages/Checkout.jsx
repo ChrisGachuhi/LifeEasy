@@ -2,11 +2,14 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useClearCartMutation, useFetchCartQuery } from '../redux/cartApi'
 import { usePlaceOrderMutation } from '../redux/orderApi'
+import { useInitiateStkPushMutation } from '../redux/mpesaApi'
 
 export const Checkout = () => {
   const { data: cartItems, isLoading, error } = useFetchCartQuery()
   const [placeOrder] = usePlaceOrderMutation()
   const [clearCart] = useClearCartMutation()
+  const [initiateStkPush] = useInitiateStkPushMutation()
+  const [paymentError, setPaymentError] = useState(null)
 
   const navigate = useNavigate()
 
@@ -18,53 +21,83 @@ export const Checkout = () => {
   })
 
   const [paymentMethod, setPaymentMethod] = useState('card')
+  const [phoneNumber, setPhoneNumber] = useState('') // for M-PESA
 
-  //Handle change
   const handleChange = (e) => {
     setShippingInfo({ ...shippingInfo, [e.target.name]: e.target.value })
   }
 
-  // Handle Order Submission
   const handleOrder = async (e) => {
     e.preventDefault()
+    setPaymentError(null)
 
-    // Validate that all cart items contain a valid product ID
     const hasInvalidProduct = cartItems.items.some(
       (item) => !item.product || !item.product._id
     )
-
     if (hasInvalidProduct) {
-      alert('One or more products in your cart are invalid or unavailable.')
+      setPaymentError(
+        'One or more products in your cart are invalid or unavailable.'
+      )
       return
     }
 
-    // Create payload by extracting product ID and quantity only
-    const orderPayload = {
-      products: cartItems.items.map((item) => ({
-        product: item.product._id, // ✅ use only the ID
-        quantity: item.quantity,
-      })),
-      paymentMethod,
-      shippingAddress: shippingInfo,
-    }
+    const products = cartItems.items.map((item) => ({
+      product: item.product._id,
+      quantity: item.quantity,
+    }))
 
     try {
-      await placeOrder(orderPayload).unwrap() // send request to backend
-      await clearCart() // clear the cart after successful order
+      // M-PESA PAYMENT
+      if (paymentMethod === 'mpesa') {
+        if (!phoneNumber.match(/^2547\d{8}$/)) {
+          setPaymentError(
+            'Enter a valid Safaricom number in 2547XXXXXXXX format'
+          )
+          return
+        }
+
+        // Make sure the token is valid before proceeding
+        const token = localStorage.getItem('token')
+        if (!token) {
+          setPaymentError('Authentication required. Please log in again.')
+          navigate('/login')
+          return
+        }
+
+        const result = await initiateStkPush({
+          phoneNumber,
+          products,
+          shippingAddress: shippingInfo,
+          transactionDesc: 'Payment for LifeEasy Order',
+        }).unwrap()
+
+        alert('M-PESA prompt sent. Complete payment on your phone.')
+        navigate('/orders')
+        return
+      }
+
+      // CARD / COD PAYMENT
+      const orderPayload = {
+        products,
+        paymentMethod,
+        shippingAddress: shippingInfo,
+      }
+
+      await placeOrder(orderPayload).unwrap()
+      await clearCart()
       alert('Order placed successfully!')
       navigate('/orders')
     } catch (err) {
-      console.error('Error placing order:', err)
-      alert('Order failed. Please check product availability and try again.')
+      console.error('Payment Error:', err)
+      setPaymentError(
+        err.data?.error || 'Order/payment failed. Please try again.'
+      )
     }
   }
 
-  //Calculate the total price
   const totalPrice = cartItems?.items
-    ?.reduce((acc, item) => {
-      return acc + item.product.price * item.quantity
-    }, 0)
-    .toFixed(2) // <- move toFixed here after accumulation
+    ?.reduce((acc, item) => acc + item.product.price * item.quantity, 0)
+    .toFixed(2)
 
   if (isLoading) return <p>Loading cart...</p>
   if (error) return <p className='text-red-500'>Failed to load cart.</p>
@@ -74,49 +107,29 @@ export const Checkout = () => {
     <div className='mx-auto p-6'>
       <h1 className='text-3xl font-bold mb-6 text-center'>Checkout</h1>
 
+      {paymentError && (
+        <div className='bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4'>
+          {paymentError}
+        </div>
+      )}
+
       <div className='grid grid-cols-1 md:grid-cols-2 gap-6'>
-        {/* Shipping Form */}
+        {/* Shipping Details */}
         <div className='md:col-span-2 bg-white p-6 rounded-lg shadow-md'>
           <h2 className='text-xl font-semibold mb-4'>Shipping Details</h2>
           <form onSubmit={handleOrder}>
-            <input
-              type='text'
-              name='fullname'
-              placeholder='Fullname'
-              required
-              value={shippingInfo.fullname}
-              className='w-full p-3 border rounded mb-3'
-              onChange={handleChange}
-            />
-            <input
-              type='address'
-              name='address'
-              placeholder='Address'
-              required
-              value={shippingInfo.address}
-              className='w-full p-3 border rounded mb-3'
-              onChange={handleChange}
-            />
-            <input
-              type='city'
-              name='city'
-              placeholder='City'
-              required
-              value={shippingInfo.city}
-              className='w-full p-3 border rounded mb-3'
-              onChange={handleChange}
-            />
-            <input
-              type='postalCode'
-              name='postalCode'
-              placeholder='Postal Code'
-              required
-              value={shippingInfo.postalCode}
-              className='w-full p-3 border rounded mb-3'
-              onChange={handleChange}
-            />
+            {['fullname', 'address', 'city', 'postalCode'].map((field) => (
+              <input
+                key={field}
+                name={field}
+                required
+                placeholder={field.charAt(0).toUpperCase() + field.slice(1)}
+                value={shippingInfo[field]}
+                onChange={handleChange}
+                className='w-full p-3 border rounded mb-3'
+              />
+            ))}
 
-            {/* Payment Selection */}
             <h2 className='text-xl font-semibold mt-6 mb-2'>Payment Method</h2>
             <div className='flex gap-4'>
               {['card', 'cod', 'mpesa'].map((method) => (
@@ -129,10 +142,21 @@ export const Checkout = () => {
                     onChange={() => setPaymentMethod(method)}
                     className='mr-2'
                   />
-                  {method.charAt(0).toUpperCase() + method.slice(1)}
+                  {method.toUpperCase()}
                 </label>
               ))}
             </div>
+
+            {paymentMethod === 'mpesa' && (
+              <input
+                type='number'
+                placeholder='Safaricom number (2547XXXXXXXX)'
+                value={phoneNumber}
+                onChange={(e) => setPhoneNumber(e.target.value)}
+                required
+                className='w-full p-3 border rounded mt-4'
+              />
+            )}
 
             <button
               type='submit'
@@ -150,10 +174,9 @@ export const Checkout = () => {
               <span>
                 {item.product.name} x {item.quantity}
               </span>
-              <span> ${(item.product.price * item.quantity).toFixed(2)} </span>
+              <span>${(item.product.price * item.quantity).toFixed(2)}</span>
             </div>
           ))}
-
           <hr className='my-3' />
           <p className='text-gray-700'>
             Total Price:
